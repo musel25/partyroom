@@ -52,16 +52,16 @@ export default function FriendsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fffaf0] p-6">
+    <main className="min-h-screen bg-duo-cream p-6">
       <div className="max-w-2xl mx-auto space-y-5">
-        <h1 className="text-2xl font-bold text-[#3c3c3c]">Friends</h1>
-        <section className="bg-white rounded-2xl p-5 border-b-[3px] border-[#e5e5e5]">
-          <div className="text-xs font-bold uppercase text-[#999] mb-3">Find people</div>
+        <h1 className="text-2xl font-bold text-duo-text">Friends</h1>
+        <section className="bg-white rounded-2xl p-5 border-b-[3px] border-duo-border">
+          <div className="text-xs font-bold uppercase text-duo-faint mb-3">Find people</div>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Email or name"
-            className="w-full rounded-xl px-3 py-2 bg-[#f7f7f7] focus:outline-none border-2 border-transparent focus:border-[#58cc02] text-sm"
+            className="w-full rounded-xl px-3 py-2 bg-duo-soft focus:outline-none border-2 border-transparent focus:border-duo-green text-sm"
           />
           <ul className="mt-3 space-y-2">
             {hits.map((u) => (
@@ -73,17 +73,17 @@ export default function FriendsPage() {
           </ul>
         </section>
 
-        <section className="bg-white rounded-2xl p-5 border-b-[3px] border-[#e5e5e5]">
-          <div className="text-xs font-bold uppercase text-[#999] mb-3">Your friends</div>
+        <section className="bg-white rounded-2xl p-5 border-b-[3px] border-duo-border">
+          <div className="text-xs font-bold uppercase text-duo-faint mb-3">Your friends</div>
           <ul className="space-y-2">
             {friends.length === 0 && (
-              <li className="text-sm text-[#777]">No friends yet.</li>
+              <li className="text-sm text-duo-muted">No friends yet.</li>
             )}
             {friends.map((f) => (
               <li key={f.id} className="flex justify-between items-center text-sm">
-                <span className="text-[#3c3c3c]">
+                <span className="text-duo-text">
                   {f.other.name ?? "anon"}{" "}
-                  {f.status === "PENDING" && (f.iSent ? <em className="text-[#999]">(sent)</em> : <em className="text-[#999]">(wants to add)</em>)}
+                  {f.status === "PENDING" && (f.iSent ? <em className="text-duo-faint">(sent)</em> : <em className="text-duo-faint">(wants to add)</em>)}
                 </span>
                 <div className="flex gap-2">
                   {f.status === "PENDING" && !f.iSent && <DuoButton onClick={() => accept(f.id)}>Accept</DuoButton>}

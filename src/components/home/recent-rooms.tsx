@@ -17,21 +17,21 @@ export function RecentRooms() {
   }, []);
 
   if (rooms.length === 0) {
-    return <p className="text-sm text-[#777]">No rooms yet — create one above!</p>;
+    return <p className="text-sm text-duo-muted">No rooms yet — create one above!</p>;
   }
   return (
     <ul className="space-y-2">
       {rooms.slice(0, 5).map((r) => (
         <li
           key={r.code}
-          className="flex justify-between items-center p-3 bg-[#f7f7f7] rounded-xl"
+          className="flex justify-between items-center p-3 bg-duo-soft rounded-xl"
         >
           <div>
-            <div className="font-bold text-sm text-[#3c3c3c]">{r.code}</div>
-            <div className="text-xs text-[#999]">by {r.creatorName ?? "you"}</div>
+            <div className="font-bold text-sm text-duo-text">{r.code}</div>
+            <div className="text-xs text-duo-faint">by {r.creatorName ?? "you"}</div>
           </div>
           {!r.closed && (
-            <a href={`/room/${r.code}`} className="text-sm font-bold text-[#1cb0f6] hover:text-[#0a8fc7]">
+            <a href={`/room/${r.code}`} className="text-sm font-bold text-duo-blue hover:text-duo-blue-dk">
               Open
             </a>
           )}

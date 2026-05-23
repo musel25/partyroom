@@ -38,8 +38,8 @@ export function ChatPanel() {
       <div ref={listRef} className="flex-1 overflow-y-auto space-y-2 mb-3">
         {messages.map((m) => (
           <div key={m.id} className="text-sm">
-            <span className="font-bold text-[#58cc02]">{m.authorName}</span>{" "}
-            <span className="text-[#3c3c3c]">{m.body}</span>
+            <span className="font-bold text-duo-green">{m.authorName}</span>{" "}
+            <span className="text-duo-text">{m.body}</span>
           </div>
         ))}
       </div>
@@ -49,7 +49,7 @@ export function ChatPanel() {
           onChange={(e) => setDraft(e.target.value)}
           maxLength={500}
           placeholder="Say something..."
-          className="flex-1 rounded-xl px-3 py-2 bg-[#f7f7f7] focus:outline-none focus:bg-white border-2 border-transparent focus:border-[#58cc02] text-sm"
+          className="flex-1 rounded-xl px-3 py-2 bg-duo-soft focus:outline-none focus:bg-white border-2 border-transparent focus:border-duo-green text-sm"
         />
       </form>
     </div>

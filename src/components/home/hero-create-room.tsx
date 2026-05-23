@@ -30,7 +30,7 @@ export function HeroCreateRoom({ userName }: { userName: string }) {
   }
 
   return (
-    <div className="rounded-2xl p-6 text-white border-b-[4px] border-[#3d8500]"
+    <div className="rounded-2xl p-6 text-white border-b-[4px] border-duo-green-2"
          style={{ background: "linear-gradient(135deg, #58cc02 0%, #89e219 100%)" }}>
       <h2 className="text-xl font-bold mb-1">👋 Hey {userName}</h2>
       <p className="text-sm text-white/90 mb-4">Paste a YouTube link to start watching together.</p>
@@ -41,9 +41,9 @@ export function HeroCreateRoom({ userName }: { userName: string }) {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://youtube.com/watch?v=..."
-          className="w-full rounded-xl px-4 py-3 text-[#3c3c3c] placeholder-[#aaa] focus:outline-none"
+          className="w-full rounded-xl px-4 py-3 text-duo-text placeholder-[#aaa] focus:outline-none"
         />
-        <DuoButton type="submit" variant="ghost" disabled={busy} className="w-full !bg-white !text-[#58a700] !border-[#3d8500]">
+        <DuoButton type="submit" variant="ghost" disabled={busy} className="w-full !bg-white !text-duo-green-dk !border-duo-green-2">
           {busy ? "Creating…" : "Create room"}
         </DuoButton>
         {error && <p className="text-xs text-red-100">⚠ {error}</p>}

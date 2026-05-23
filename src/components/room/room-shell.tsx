@@ -21,6 +21,7 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
   const { state, error } = useRoomState(roomCode);
   const [player, setPlayer] = useState<YTPlayer | null>(null);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
   const suppressEmit = useRef(false);
 
   useDriftCorrection(player, state);
@@ -37,19 +38,19 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
 
   if (error) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-[#fffaf0]">
-        <p className="text-[#777]">{error}</p>
+      <main className="min-h-screen flex items-center justify-center bg-duo-cream">
+        <p className="text-duo-muted">{error}</p>
       </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#fffaf0] p-4">
+    <div className="min-h-screen bg-duo-cream p-4">
       <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-4 bg-white rounded-xl px-5 py-3 border-b-[3px] border-[#e5e5e5]">
-          <div className="text-xl font-bold text-[#58cc02]">▶ partyroom</div>
-          <div className="text-sm font-bold text-[#777]">
-            Room <span className="text-[#3c3c3c]">{roomCode}</span>
+        <header className="flex justify-between items-center mb-4 bg-white rounded-xl px-5 py-3 border-b-[3px] border-duo-border">
+          <div className="text-xl font-bold text-duo-green">▶ partyroom</div>
+          <div className="text-sm font-bold text-duo-muted">
+            Room <span className="text-duo-text">{roomCode}</span>
           </div>
         </header>
 
@@ -63,35 +64,46 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
               />
               <ReactionsOverlay />
             </div>
-            <div className="bg-white rounded-xl p-3 border-b-[3px] border-[#e5e5e5] flex justify-between items-center">
-              <span className="text-sm text-[#777]">Anyone can play, pause, seek, or add to the queue.</span>
+            <div className="bg-white rounded-xl p-3 border-b-[3px] border-duo-border flex justify-between items-center">
+              <span className="text-sm text-duo-muted">Anyone can play, pause, seek, or add to the queue.</span>
               <button
                 onClick={() => setQueueOpen(true)}
-                className="text-sm font-bold text-[#1cb0f6] hover:text-[#0a8fc7]"
+                className="text-sm font-bold text-duo-blue hover:text-duo-blue-dk"
               >
                 Queue ({state?.queue.length ?? 0})
               </button>
             </div>
           </div>
-          <aside className="bg-white rounded-2xl p-4 border-b-[3px] border-[#e5e5e5] h-[600px] flex flex-col gap-3">
-            <div>
-              <div className="text-xs font-bold uppercase text-[#999] mb-2">
-                Participants ({state?.participants.length ?? 0})
-              </div>
-              <ul className="space-y-1 text-sm">
-                {state?.participants.map((p) => (
-                  <li key={p.socketId} className="text-[#3c3c3c]">
-                    {p.displayName}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="border-t border-[#e5e5e5] pt-3 flex-1 flex flex-col min-h-0">
-              <div className="text-xs font-bold uppercase text-[#999] mb-2">Chat</div>
-              <div className="flex-1 min-h-0">
-                <ChatPanel />
-              </div>
-            </div>
+          <aside className={`bg-white rounded-2xl p-4 border-b-[3px] border-duo-border flex flex-col gap-3 transition-all
+                             ${chatOpen ? "h-[600px]" : "h-12 overflow-hidden"}`}>
+            <button
+              onClick={() => setChatOpen((v) => !v)}
+              className="text-xs font-bold uppercase text-duo-faint flex justify-between items-center w-full"
+            >
+              <span>Chat</span>
+              <span>{chatOpen ? "−" : "+"}</span>
+            </button>
+            {chatOpen && (
+              <>
+                <div>
+                  <div className="text-xs font-bold uppercase text-duo-faint mb-2">
+                    Participants ({state?.participants.length ?? 0})
+                  </div>
+                  <ul className="space-y-1 text-sm">
+                    {state?.participants.map((p) => (
+                      <li key={p.socketId} className="text-duo-text">
+                        {p.displayName}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="border-t border-duo-border pt-3 flex-1 flex flex-col min-h-0">
+                  <div className="flex-1 min-h-0">
+                    <ChatPanel />
+                  </div>
+                </div>
+              </>
+            )}
           </aside>
         </div>
       </div>

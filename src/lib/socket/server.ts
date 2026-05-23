@@ -10,6 +10,7 @@ import { trackPresence, untrackPresence } from "./presence";
 import { installPlaybackHandlers } from "./playback";
 import { installChatHandlers, loadChatHistory } from "./chat";
 import { installQueueHandlers } from "./queue";
+import { installReactionHandlers } from "./reactions";
 import { broadcastRoomState } from "./broadcast";
 
 export function installSocketServer(
@@ -57,6 +58,7 @@ export function installSocketServer(
     installPlaybackHandlers(io, socket);
     installChatHandlers(io, socket);
     installQueueHandlers(io, socket);
+    installReactionHandlers(io, socket);
 
     socket.on("disconnect", () => untrackPresence(io, socket));
   });

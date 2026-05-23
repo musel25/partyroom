@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { YouTubePlayer } from "./youtube-player";
 import { ChatPanel } from "./chat-panel";
 import { QueueDrawer } from "./queue-drawer";
+import { ReactionsOverlay } from "./reactions-overlay";
 import { useRoomState } from "@/hooks/use-room-state";
 import { useDriftCorrection } from "@/hooks/use-drift-correction";
 import { getSocket } from "@/lib/socket/client";
@@ -54,11 +55,14 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
 
         <div className="grid lg:grid-cols-[1fr_320px] gap-4">
           <div className="space-y-3">
-            <YouTubePlayer
-              videoId={state?.videoId ?? null}
-              onReady={setPlayer}
-              onStateChange={handleStateChange}
-            />
+            <div className="relative">
+              <YouTubePlayer
+                videoId={state?.videoId ?? null}
+                onReady={setPlayer}
+                onStateChange={handleStateChange}
+              />
+              <ReactionsOverlay />
+            </div>
             <div className="bg-white rounded-xl p-3 border-b-[3px] border-[#e5e5e5] flex justify-between items-center">
               <span className="text-sm text-[#777]">Anyone can play, pause, seek, or add to the queue.</span>
               <button

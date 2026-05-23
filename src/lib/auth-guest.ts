@@ -1,5 +1,9 @@
 import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
+
+// `next/headers` is intentionally lazy-imported inside the cookie helpers.
+// Importing it at module top-level bootstraps Next's AsyncLocalStorage and
+// crashes the custom Node server (which loads this module at boot via the
+// socket auth path).
 
 export const GUEST_COOKIE = "partyroom_guest";
 
@@ -36,6 +40,7 @@ export async function readGuest(token: string): Promise<GuestSession | null> {
 
 export async function setGuestCookie(payload: GuestSession) {
   const token = await signGuest(payload);
+  const { cookies } = await import("next/headers");
   const c = await cookies();
   c.set(GUEST_COOKIE, token, {
     httpOnly: true,
@@ -47,6 +52,7 @@ export async function setGuestCookie(payload: GuestSession) {
 }
 
 export async function getGuestFromCookies(): Promise<GuestSession | null> {
+  const { cookies } = await import("next/headers");
   const c = await cookies();
   const token = c.get(GUEST_COOKIE)?.value;
   if (!token) return null;

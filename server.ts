@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import next from "next";
 import { Server as SocketIOServer } from "socket.io";
 import type { ClientToServerEvents, ServerToClientEvents } from "./src/lib/socket/types";
+import { installSocketServer } from "./src/lib/socket/server";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "0.0.0.0";
@@ -19,12 +20,7 @@ async function main() {
     transports: ["websocket", "polling"],
   });
 
-  io.on("connection", (socket) => {
-    console.log("[io] connection", socket.id);
-    socket.on("disconnect", (reason) => {
-      console.log("[io] disconnect", socket.id, reason);
-    });
-  });
+  installSocketServer(io);
 
   httpServer.listen(port, () => {
     console.log(`partyroom ready on http://${hostname}:${port}`);

@@ -17,5 +17,5 @@ export default async function RoomPage({ params }: { params: Promise<{ code: str
     return <GuestPrompt code={code} />;
   }
 
-  return <RoomShell roomCode={code} initialVideoId={room.videoId} />;
+  return <RoomShell roomCode={code} />;
 }

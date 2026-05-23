@@ -17,10 +17,9 @@ RUN npx esbuild server.ts \
       --bundle \
       --platform=node \
       --target=node22 \
-      --format=esm \
-      --outfile=dist/server.mjs \
-      --packages=external \
-      --banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
+      --format=cjs \
+      --outfile=dist/server.cjs \
+      --packages=external
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -34,4 +33,4 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
 USER app
 EXPOSE 3000
-CMD ["node", "dist/server.mjs"]
+CMD ["node", "dist/server.cjs"]

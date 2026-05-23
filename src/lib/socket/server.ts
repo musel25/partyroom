@@ -9,6 +9,7 @@ import { getRoom, listParticipants } from "../room/store";
 import { trackPresence, untrackPresence } from "./presence";
 import { installPlaybackHandlers } from "./playback";
 import { installChatHandlers, loadChatHistory } from "./chat";
+import { installQueueHandlers } from "./queue";
 import { broadcastRoomState } from "./broadcast";
 
 export function installSocketServer(
@@ -55,6 +56,7 @@ export function installSocketServer(
 
     installPlaybackHandlers(io, socket);
     installChatHandlers(io, socket);
+    installQueueHandlers(io, socket);
 
     socket.on("disconnect", () => untrackPresence(io, socket));
   });

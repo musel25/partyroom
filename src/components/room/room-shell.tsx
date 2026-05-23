@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { YouTubePlayer } from "./youtube-player";
+import { ChatPanel } from "./chat-panel";
 import { useRoomState } from "@/hooks/use-room-state";
 import { useDriftCorrection } from "@/hooks/use-drift-correction";
 import { getSocket } from "@/lib/socket/client";
@@ -54,17 +55,25 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
               onStateChange={handleStateChange}
             />
           </div>
-          <aside className="bg-white rounded-2xl p-4 border-b-[3px] border-[#e5e5e5] min-h-[200px]">
-            <div className="text-xs font-bold uppercase text-[#999] mb-2">
-              Participants ({state?.participants.length ?? 0})
+          <aside className="bg-white rounded-2xl p-4 border-b-[3px] border-[#e5e5e5] h-[600px] flex flex-col gap-3">
+            <div>
+              <div className="text-xs font-bold uppercase text-[#999] mb-2">
+                Participants ({state?.participants.length ?? 0})
+              </div>
+              <ul className="space-y-1 text-sm">
+                {state?.participants.map((p) => (
+                  <li key={p.socketId} className="text-[#3c3c3c]">
+                    {p.displayName}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="space-y-1 text-sm">
-              {state?.participants.map((p) => (
-                <li key={p.socketId} className="text-[#3c3c3c]">
-                  {p.displayName}
-                </li>
-              ))}
-            </ul>
+            <div className="border-t border-[#e5e5e5] pt-3 flex-1 flex flex-col min-h-0">
+              <div className="text-xs font-bold uppercase text-[#999] mb-2">Chat</div>
+              <div className="flex-1 min-h-0">
+                <ChatPanel />
+              </div>
+            </div>
           </aside>
         </div>
       </div>

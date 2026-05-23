@@ -10,6 +10,17 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 RUN npm run build
+# Compile the custom server (server.ts + ./src/lib/socket/*) into a single
+# JS bundle. We can't run it via tsx at runtime — tsx's loader conflicts
+# with Next.js's AsyncLocalStorage isolation.
+RUN npx esbuild server.ts \
+      --bundle \
+      --platform=node \
+      --target=node22 \
+      --format=esm \
+      --outfile=dist/server.mjs \
+      --packages=external \
+      --banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -19,10 +30,8 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/server.ts ./server.ts
-COPY --from=builder /app/src ./src
+COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
 USER app
 EXPOSE 3000
-CMD ["npx", "tsx", "server.ts"]
+CMD ["node", "dist/server.mjs"]

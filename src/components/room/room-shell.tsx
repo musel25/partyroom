@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { YouTubePlayer } from "./youtube-player";
 import { ChatPanel } from "./chat-panel";
+import { QueueDrawer } from "./queue-drawer";
 import { useRoomState } from "@/hooks/use-room-state";
 import { useDriftCorrection } from "@/hooks/use-drift-correction";
 import { getSocket } from "@/lib/socket/client";
@@ -18,6 +19,7 @@ type YTPlayer = {
 export function RoomShell({ roomCode }: { roomCode: string }) {
   const { state, error } = useRoomState(roomCode);
   const [player, setPlayer] = useState<YTPlayer | null>(null);
+  const [queueOpen, setQueueOpen] = useState(false);
   const suppressEmit = useRef(false);
 
   useDriftCorrection(player, state);
@@ -27,6 +29,9 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
     const s = getSocket();
     if (ytState === 1) s.emit("playback:play", { positionSec: currentTime });
     if (ytState === 2) s.emit("playback:pause", { positionSec: currentTime });
+    if (ytState === 0 /* ENDED */ && state?.videoId) {
+      s.emit("queue:advance", { fromVideoId: state.videoId });
+    }
   }
 
   if (error) {
@@ -54,6 +59,15 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
               onReady={setPlayer}
               onStateChange={handleStateChange}
             />
+            <div className="bg-white rounded-xl p-3 border-b-[3px] border-[#e5e5e5] flex justify-between items-center">
+              <span className="text-sm text-[#777]">Anyone can play, pause, seek, or add to the queue.</span>
+              <button
+                onClick={() => setQueueOpen(true)}
+                className="text-sm font-bold text-[#1cb0f6] hover:text-[#0a8fc7]"
+              >
+                Queue ({state?.queue.length ?? 0})
+              </button>
+            </div>
           </div>
           <aside className="bg-white rounded-2xl p-4 border-b-[3px] border-[#e5e5e5] h-[600px] flex flex-col gap-3">
             <div>
@@ -77,6 +91,7 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
           </aside>
         </div>
       </div>
+      <QueueDrawer queue={state?.queue ?? []} open={queueOpen} onClose={() => setQueueOpen(false)} />
     </div>
   );
 }

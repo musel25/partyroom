@@ -2,26 +2,13 @@ import type { Server } from "socket.io";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
-  RoomStateSnapshot,
 } from "./types";
 import { identifySocket } from "./auth";
 import { loadRoomIntoMemory } from "../room/rehydrate";
 import { getRoom, listParticipants } from "../room/store";
 import { trackPresence, untrackPresence } from "./presence";
-
-function toSnapshot(roomId: string): RoomStateSnapshot | null {
-  const s = getRoom(roomId);
-  if (!s) return null;
-  return {
-    roomId: s.roomId,
-    videoId: s.videoId,
-    playing: s.playing,
-    positionSec: s.positionSec,
-    updatedAt: s.updatedAt,
-    queue: s.queue,
-    participants: listParticipants(roomId),
-  };
-}
+import { installPlaybackHandlers } from "./playback";
+import { broadcastRoomState } from "./broadcast";
 
 export function installSocketServer(
   io: Server<ClientToServerEvents, ServerToClientEvents>,
@@ -49,10 +36,30 @@ export function installSocketServer(
         guestName: user.guestName,
         displayName: user.displayName,
       });
-      const snap = toSnapshot(state.roomId);
-      if (snap) ack(snap);
+      const s = getRoom(state.roomId);
+      if (s) {
+        ack({
+          roomId: s.roomId,
+          videoId: s.videoId,
+          playing: s.playing,
+          positionSec: s.positionSec,
+          updatedAt: s.updatedAt,
+          queue: s.queue,
+          participants: listParticipants(state.roomId),
+        });
+      }
     });
+
+    installPlaybackHandlers(io, socket);
 
     socket.on("disconnect", () => untrackPresence(io, socket));
   });
+
+  setInterval(() => {
+    // io.sockets.adapter.rooms includes both per-socket rooms (id === socket.id)
+    // and our app-level rooms (we join with roomId from store). Filter to ours.
+    for (const roomId of io.sockets.adapter.rooms.keys()) {
+      if (getRoom(roomId)) broadcastRoomState(io, roomId);
+    }
+  }, 30_000);
 }

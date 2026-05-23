@@ -33,27 +33,28 @@ export function YouTubePlayer({ videoId, onReady, onStateChange }: Props) {
   const playerRef = useRef<YTPlayer | null>(null);
   const readyRef = useRef(false);
   const currentVideoIdRef = useRef<string | null>(null);
-  // Keep latest props accessible from the YT callbacks without rebuilding the player.
-  const propsRef = useRef({ videoId, onReady, onStateChange });
-  propsRef.current = { videoId, onReady, onStateChange };
+  // Latest callbacks are accessible to YT event handlers without rebuilding the player.
+  const propsRef = useRef({ onReady, onStateChange });
+  propsRef.current = { onReady, onStateChange };
 
+  // Build the YT player the first time a videoId is provided.
+  // Constructing with no videoId leaves the player in a state where
+  // later loadVideoById calls don't take effect.
   useEffect(() => {
+    if (!videoId || playerRef.current) return;
+    let cancelled = false;
+
     function build() {
-      if (!ref.current || !window.YT) return;
+      if (cancelled || !ref.current || !window.YT || !videoId) return;
+      currentVideoIdRef.current = videoId;
       playerRef.current = new window.YT.Player(ref.current, {
-        // Start empty — we load the video in the onReady callback below.
-        // Passing videoId here races with `loadVideoById` from the second effect.
+        videoId,
         playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0 },
         events: {
           onReady: () => {
             readyRef.current = true;
             const p = playerRef.current;
             if (!p) return;
-            const vid = propsRef.current.videoId;
-            if (vid && currentVideoIdRef.current !== vid) {
-              currentVideoIdRef.current = vid;
-              p.loadVideoById(vid);
-            }
             propsRef.current.onReady?.(p);
           },
           onStateChange: (e: { data: number }) => {
@@ -77,17 +78,28 @@ export function YouTubePlayer({ videoId, onReady, onStateChange }: Props) {
       }
     }
 
-    return () => playerRef.current?.destroy();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId]);
 
-  // React to videoId changes — but only once the player is ready.
+  // Once the player is built and ready, swap to a new videoId via loadVideoById.
   useEffect(() => {
     if (!readyRef.current || !videoId || !playerRef.current) return;
     if (currentVideoIdRef.current === videoId) return;
     currentVideoIdRef.current = videoId;
     playerRef.current.loadVideoById(videoId);
   }, [videoId]);
+
+  // Destroy on unmount.
+  useEffect(() => {
+    return () => {
+      playerRef.current?.destroy();
+      playerRef.current = null;
+      readyRef.current = false;
+      currentVideoIdRef.current = null;
+    };
+  }, []);
 
   return (
     <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black">

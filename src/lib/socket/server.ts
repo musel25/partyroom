@@ -8,6 +8,7 @@ import { loadRoomIntoMemory } from "../room/rehydrate";
 import { getRoom, listParticipants } from "../room/store";
 import { trackPresence, untrackPresence } from "./presence";
 import { installPlaybackHandlers } from "./playback";
+import { installChatHandlers, loadChatHistory } from "./chat";
 import { broadcastRoomState } from "./broadcast";
 
 export function installSocketServer(
@@ -47,10 +48,13 @@ export function installSocketServer(
           queue: s.queue,
           participants: listParticipants(state.roomId),
         });
+        const history = await loadChatHistory(state.roomId);
+        socket.emit("chat:history", history);
       }
     });
 
     installPlaybackHandlers(io, socket);
+    installChatHandlers(io, socket);
 
     socket.on("disconnect", () => untrackPresence(io, socket));
   });

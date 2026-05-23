@@ -1,118 +1,161 @@
-# VPS bootstrap & deployment
+# Deployment
+
+partyroom runs in production at **https://partyroom.musel.dev** — an Oracle Cloud
+VM, in Docker, behind the host's nginx (shared with other apps on the same VPS).
+
+## Architecture
+
+```
+browser → partyroom.musel.dev   (DNS A record → 145.241.168.188)
+        → nginx :443            TLS termination + WebSocket upgrade
+        → 127.0.0.1:3000
+        → Docker "app" container (Next.js + Socket.IO)
+        → Postgres container on the docker-compose network
+```
+
+The host nginx (not a Caddy container) handles TLS and reverse-proxies to the
+app on localhost. This matches how `math.musel.dev` is served on the same VPS.
 
 ## Prereqs
 
-- OCI instance with public IP (or any cloud VPS)
-- SSH access as the default user (`opc` on Oracle Linux, `ubuntu` on Ubuntu)
-- Ports 80 and 443 open in the VPS security list / firewall
-- A GitHub PAT with `read:packages` if the GHCR image becomes private (it's public by default)
+- OCI instance with ports 80/443 already open (security list + host firewall)
+- SSH access as `ubuntu`
+- nginx + certbot already installed on the host (from the mathtrainer setup)
+- DNS A record `partyroom.musel.dev` → VPS public IP
 
 ## One-time bootstrap
 
-1. **SSH in:**
-   ```bash
-   ssh <user>@<vps-ip>
-   ```
+### 1. SSH in and prepare app directory
 
-2. **Install Docker:**
-   ```bash
-   curl -fsSL https://get.docker.com | sudo sh
-   sudo usermod -aG docker $USER
-   exit  # log out and back in so the group change takes effect
-   ```
-   After reconnecting, verify: `docker ps`.
+```bash
+ssh -i ~/.ssh/ssh-key-2026-04-05.key ubuntu@145.241.168.188
+sudo mkdir -p /opt/partyroom
+sudo chown $USER:$USER /opt/partyroom
+cd /opt/partyroom
+```
 
-3. **Create the app directory:**
-   ```bash
-   sudo mkdir -p /opt/partyroom
-   sudo chown $USER:$USER /opt/partyroom
-   cd /opt/partyroom
-   ```
+### 2. Pull deploy files
 
-4. **Pull only the deploy files (image comes from GHCR):**
-   ```bash
-   curl -O https://raw.githubusercontent.com/musel25/partyroom/main/docker-compose.prod.yml
-   curl -O https://raw.githubusercontent.com/musel25/partyroom/main/Caddyfile
-   curl -O https://raw.githubusercontent.com/musel25/partyroom/main/.env.prod.example
-   mv .env.prod.example .env.prod
-   ```
+```bash
+curl -O https://raw.githubusercontent.com/musel25/partyroom/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/musel25/partyroom/main/.env.prod.example
+cp .env.prod.example .env.prod
+```
 
-5. **Edit `.env.prod`:**
-   - `NEXTAUTH_SECRET`: `openssl rand -base64 32`
-   - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: from Google Cloud Console
-   - `POSTGRES_PASSWORD`: a strong random value (mirror it in `DATABASE_URL`)
+### 3. Fill in `.env.prod`
 
-6. **DNS — point `partyroom.musel.dev` at the VPS:**
-   On Vercel (where `musel.dev` is registered): Dashboard → Domains → `musel.dev` → DNS records → Add record:
-   - Type: `A`
-   - Name: `partyroom`
-   - Value: `<vps-public-ip>`
-   - TTL: 60
+```bash
+nano .env.prod
+```
 
-   Verify: `dig partyroom.musel.dev` should return the VPS IP after a minute or two.
+Set:
+- `NEXTAUTH_SECRET` — `openssl rand -base64 32`
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — from Google Cloud Console
+- `POSTGRES_PASSWORD` — a strong random value (e.g. `openssl rand -base64 24`).
+  **Mirror it in `DATABASE_URL`.**
 
-7. **First boot:**
-   ```bash
-   docker compose -f docker-compose.prod.yml up -d
-   ```
+### 4. Install the nginx vhost
 
-8. **Run the initial migration:**
-   ```bash
-   docker compose -f docker-compose.prod.yml exec app npx prisma migrate deploy
-   ```
+```bash
+sudo curl -o /etc/nginx/sites-available/partyroom.musel.dev \
+  https://raw.githubusercontent.com/musel25/partyroom/main/deploy/nginx-partyroom.conf
+sudo ln -sf /etc/nginx/sites-available/partyroom.musel.dev /etc/nginx/sites-enabled/
+sudo nginx -t        # syntax check
+```
 
-9. **Visit https://partyroom.musel.dev** — Caddy provisions the TLS cert on first request. May take ~30 seconds the very first time.
+`nginx -t` will warn about missing SSL certs — that's expected; we obtain them next.
+
+### 5. Obtain the TLS certificate
+
+Temporarily disable the symlink so nginx loads OK without certs, request the cert
+via the webroot challenge, then re-enable:
+
+```bash
+sudo rm /etc/nginx/sites-enabled/partyroom.musel.dev
+sudo systemctl reload nginx
+
+sudo certbot certonly --webroot -w /var/www/html \
+  -d partyroom.musel.dev \
+  --agree-tos -m museltabarespardo@gmail.com -n
+
+sudo ln -sf /etc/nginx/sites-available/partyroom.musel.dev /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 6. Boot the app stack
+
+```bash
+cd /opt/partyroom
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+sleep 15
+docker compose -f docker-compose.prod.yml exec app npx prisma migrate deploy
+```
+
+Note: the very first `docker compose pull` requires the image to have been
+pushed to GHCR by the **Deploy** workflow at least once. If this is the very
+first deploy, trigger the workflow first
+(https://github.com/musel25/partyroom/actions → **Deploy** → **Run workflow**)
+and wait for the build job to finish before running `pull` on the VPS. The
+workflow's SSH step does the pull+migrate for you on subsequent runs.
 
 ## GitHub Actions secrets
 
-On https://github.com/musel25/partyroom/settings/secrets/actions add:
+On https://github.com/musel25/partyroom/settings/secrets/actions:
 
-- `VPS_HOST` — public IP or DNS name of the VPS
-- `VPS_USER` — `opc` (Oracle Linux) or `ubuntu` (Ubuntu image)
-- `VPS_SSH_KEY` — contents of a private SSH key whose public counterpart is in `~/.ssh/authorized_keys` on the VPS
-
-Generate a deploy key (locally):
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/partyroom_deploy -N ""
-cat ~/.ssh/partyroom_deploy.pub  # paste into the VPS's ~/.ssh/authorized_keys
-cat ~/.ssh/partyroom_deploy      # paste contents into VPS_SSH_KEY secret
-```
+- `VPS_HOST` = `145.241.168.188`
+- `VPS_USER` = `ubuntu`
+- `VPS_SSH_KEY` = contents of the private key whose pub key is in
+  `~/.ssh/authorized_keys` on the VPS
 
 ## CI/CD flow
 
 - **Every PR + push to main:** runs `.github/workflows/ci.yml` (lint, typecheck, tests).
 - **Push to main:** runs `.github/workflows/deploy.yml`:
-  1. Builds a Docker image, tags it `latest` + `<sha>`, pushes to GHCR
+  1. Builds a Docker image, tags `latest` + `<sha>`, pushes to GHCR
   2. SSHes into VPS, pulls the new image, restarts the `app` container, runs migrations
 
-## Operational notes
+## Operations
 
-- **Restart the stack:** `docker compose -f docker-compose.prod.yml restart`
-- **View live logs:** `docker compose -f docker-compose.prod.yml logs -f app`
-- **Re-run migrations after a schema change:** the deploy workflow runs them automatically; manual: `docker compose -f docker-compose.prod.yml exec app npx prisma migrate deploy`
-- **Database backup:** `docker compose -f docker-compose.prod.yml exec postgres pg_dump -U partyroom partyroom > backup.sql`
+```bash
+cd /opt/partyroom
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f app
+docker compose -f docker-compose.prod.yml restart
+```
+
+## Database backup
+
+```bash
+docker compose -f docker-compose.prod.yml exec postgres \
+  pg_dump -U partyroom partyroom > backup-$(date +%F).sql
+```
+
+## TLS auto-renewal
+
+certbot is already configured by mathtrainer's setup and renews via the
+systemd `certbot.timer`. To check:
+
+```bash
+systemctl list-timers | grep certbot
+sudo certbot certificates
+```
+
+## Updating the Google OAuth client
+
+Google Cloud Console → APIs & Services → Credentials → `partyroom-web`:
+
+- **Authorized JavaScript origins:** `http://localhost:3000`, `https://partyroom.musel.dev`
+- **Authorized redirect URIs:** `http://localhost:3000/api/auth/callback/google`, `https://partyroom.musel.dev/api/auth/callback/google`
 
 ## Verifying
 
-From the VPS:
-```bash
-docker compose -f docker-compose.prod.yml ps
-docker compose -f docker-compose.prod.yml logs -f app
-```
-
 From a laptop:
+
 ```bash
 curl -I https://partyroom.musel.dev
 ```
 
 Expected: `HTTP/2 200`.
 
-## Updating the OAuth redirect URIs
-
-Make sure the Google OAuth client has these authorized redirect URIs:
-- `http://localhost:3000/api/auth/callback/google`
-- `https://partyroom.musel.dev/api/auth/callback/google`
-
-And these authorized JavaScript origins:
-- `http://localhost:3000`
-- `https://partyroom.musel.dev`
+In a browser: open https://partyroom.musel.dev → click "Continue with Google" → sign in → home page renders. Create a room, share the link with a second browser, confirm play/pause sync.

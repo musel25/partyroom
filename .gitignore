@@ -68,3 +68,4 @@ next-env.d.ts
 
 # Prisma
 prisma/migrations/dev/
+secrets.json

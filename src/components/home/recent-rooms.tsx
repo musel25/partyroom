@@ -1,0 +1,42 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Recent = {
+  code: string;
+  videoId: string | null;
+  joinedAt: number;
+  creatorName: string | null;
+  closed: boolean;
+};
+
+export function RecentRooms() {
+  const [rooms, setRooms] = useState<Recent[]>([]);
+  useEffect(() => {
+    void fetch("/api/rooms/recent").then((r) => r.json()).then(setRooms);
+  }, []);
+
+  if (rooms.length === 0) {
+    return <p className="text-sm text-[#777]">No rooms yet — create one above!</p>;
+  }
+  return (
+    <ul className="space-y-2">
+      {rooms.slice(0, 5).map((r) => (
+        <li
+          key={r.code}
+          className="flex justify-between items-center p-3 bg-[#f7f7f7] rounded-xl"
+        >
+          <div>
+            <div className="font-bold text-sm text-[#3c3c3c]">{r.code}</div>
+            <div className="text-xs text-[#999]">by {r.creatorName ?? "you"}</div>
+          </div>
+          {!r.closed && (
+            <a href={`/room/${r.code}`} className="text-sm font-bold text-[#1cb0f6] hover:text-[#0a8fc7]">
+              Open
+            </a>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}

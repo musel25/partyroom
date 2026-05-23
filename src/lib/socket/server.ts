@@ -12,6 +12,7 @@ import { installChatHandlers, loadChatHistory } from "./chat";
 import { installQueueHandlers } from "./queue";
 import { installReactionHandlers } from "./reactions";
 import { broadcastRoomState } from "./broadcast";
+import { db } from "../db";
 
 export function installSocketServer(
   io: Server<ClientToServerEvents, ServerToClientEvents>,
@@ -39,6 +40,14 @@ export function installSocketServer(
         guestName: user.guestName,
         displayName: user.displayName,
       });
+      // Record participation in DB (best effort)
+      await db.roomParticipant.create({
+        data: {
+          roomId: state.roomId,
+          userId: user.userId ?? null,
+          guestName: user.userId ? null : (user.guestName ?? null),
+        },
+      }).catch(() => {});
       const s = getRoom(state.roomId);
       if (s) {
         ack({

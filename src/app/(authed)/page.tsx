@@ -1,6 +1,7 @@
 import { auth, signOut } from "@/lib/auth";
 import { HeroCreateRoom } from "@/components/home/hero-create-room";
 import { FriendsSidebar } from "@/components/home/friends-sidebar";
+import { RecentRooms } from "@/components/home/recent-rooms";
 
 export default async function Home() {
   const session = await auth();
@@ -21,7 +22,7 @@ export default async function Home() {
             <HeroCreateRoom userName={name} />
             <section className="bg-white rounded-2xl p-5 border-b-[3px] border-[#e5e5e5]">
               <div className="text-xs font-bold uppercase text-[#999] mb-3">Recent rooms</div>
-              <p className="text-sm text-[#777]">No rooms yet — create one above!</p>
+              <RecentRooms />
             </section>
           </div>
           <FriendsSidebar />

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Socket } from "socket.io";
 import type { PartyServer } from "./types";
 import { getRoom, setRoom } from "../room/store";
@@ -14,38 +15,70 @@ export function installQueueHandlers(io: PartyServer, socket: Socket) {
     if (!roomId || !identity) return;
     if (!parseYouTubeId(videoId)) return;
 
-    let resolvedTitle = title;
-    let resolvedThumb = thumbnail;
-    if (!resolvedTitle || !resolvedThumb) {
-      const meta = await fetchOEmbed(videoId);
-      resolvedTitle = resolvedTitle ?? meta.title;
-      resolvedThumb = resolvedThumb ?? meta.thumbnail;
-    }
-
     const s = getRoom(roomId);
     if (!s) return;
     const position = s.queue.length;
-    const row = await db.queueItem.create({
-      data: {
-        roomId,
-        videoId,
-        title: resolvedTitle,
-        thumbnail: resolvedThumb,
-        position,
-        addedById: identity.userId ?? null,
-      },
-    });
 
+    // Apply to in-memory state IMMEDIATELY (with a generated id) so
+    // that any follow-up event arriving on the same socket — most
+    // commonly a rapid Skip — sees the item. Persist to DB
+    // fire-and-forget. We accept the small risk of a DB write losing
+    // (logged below) because the alternative was a real race that
+    // dropped the new item if the user skipped fast enough.
+    const id = randomUUID();
     const next = applyQueueAdd(s, {
-      id: row.id,
+      id,
       videoId,
-      title: resolvedTitle,
-      thumbnail: resolvedThumb,
+      title,
+      thumbnail,
       addedById: identity.userId,
       addedByName: identity.displayName,
     });
     setRoom(next);
     broadcastRoomState(io, roomId);
+
+    void (async () => {
+      try {
+        let resolvedTitle = title;
+        let resolvedThumb = thumbnail;
+        if (!resolvedTitle || !resolvedThumb) {
+          const meta = await fetchOEmbed(videoId);
+          resolvedTitle = resolvedTitle ?? meta.title;
+          resolvedThumb = resolvedThumb ?? meta.thumbnail;
+        }
+        await db.queueItem.create({
+          data: {
+            id,
+            roomId,
+            videoId,
+            title: resolvedTitle,
+            thumbnail: resolvedThumb,
+            position,
+            addedById: identity.userId ?? null,
+          },
+        });
+
+        // If we resolved metadata after the initial broadcast, patch
+        // the in-memory item and re-broadcast so clients see it.
+        if (resolvedTitle || resolvedThumb) {
+          const cur = getRoom(roomId);
+          if (!cur) return;
+          let changed = false;
+          const updated = cur.queue.map((q) => {
+            if (q.id !== id) return q;
+            if (q.title === resolvedTitle && q.thumbnail === resolvedThumb) return q;
+            changed = true;
+            return { ...q, title: resolvedTitle, thumbnail: resolvedThumb };
+          });
+          if (changed) {
+            setRoom({ ...cur, queue: updated });
+            broadcastRoomState(io, roomId);
+          }
+        }
+      } catch (err) {
+        console.error("queue:add persist failed", err);
+      }
+    })();
   });
 
   socket.on("queue:remove", async ({ queueItemId }) => {

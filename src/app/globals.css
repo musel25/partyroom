@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* Light theme (default) — Duolingo-inspired palette. */
 @theme {
   --color-duo-green: #58cc02;
   --color-duo-green-dk: #58a700;
@@ -9,6 +10,7 @@
   --color-duo-purple: #ce82ff;
   --color-duo-orange: #ff9600;
   --color-duo-cream: #fffaf0;
+  --color-duo-card: #ffffff;
   --color-duo-text: #3c3c3c;
   --color-duo-muted: #777777;
   --color-duo-faint: #999999;
@@ -16,6 +18,26 @@
   --color-duo-soft: #f7f7f7;
 
   --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Dark theme — invert background/card/border roles while keeping the
+   bright Duolingo brand colors (green/blue) as-is. Applied when
+   document.documentElement has data-theme="dark". */
+[data-theme="dark"] {
+  --color-duo-cream: #16181c;
+  --color-duo-card: #232730;
+  --color-duo-text: #ececec;
+  --color-duo-muted: #a0a0a0;
+  --color-duo-faint: #707070;
+  --color-duo-border: #2c2f36;
+  --color-duo-soft: #1f2227;
+}
+
+/* Make the underlying body background follow the theme too so the
+   browser's overscroll area matches. */
+body {
+  background: var(--color-duo-cream);
+  color: var(--color-duo-text);
 }
 
 @keyframes float {

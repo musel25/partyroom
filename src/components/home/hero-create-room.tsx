@@ -43,7 +43,7 @@ export function HeroCreateRoom({ userName }: { userName: string }) {
           placeholder="https://youtube.com/watch?v=..."
           className="w-full rounded-xl px-4 py-3 text-duo-text placeholder-[#aaa] focus:outline-none"
         />
-        <DuoButton type="submit" variant="ghost" disabled={busy} className="w-full !bg-white !text-duo-green-dk !border-duo-green-2">
+        <DuoButton type="submit" variant="ghost" disabled={busy} className="w-full !bg-duo-card !text-duo-green-dk !border-duo-green-2">
           {busy ? "Creating…" : "Create room"}
         </DuoButton>
         {error && <p className="text-xs text-red-100">⚠ {error}</p>}

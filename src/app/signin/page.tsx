@@ -8,7 +8,7 @@ export default async function SignInPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-duo-cream p-6">
-      <div className="bg-white rounded-2xl p-10 max-w-md w-full border-b-[4px] border-duo-border text-center">
+      <div className="bg-duo-card rounded-2xl p-10 max-w-md w-full border-b-[4px] border-duo-border text-center">
         <div className="text-4xl mb-4">▶</div>
         <h1 className="text-2xl font-bold text-duo-text mb-2">Welcome to partyroom</h1>
         <p className="text-sm text-duo-muted mb-8">Watch YouTube together. Sync. Chat. Vibe.</p>

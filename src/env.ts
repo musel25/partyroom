@@ -6,6 +6,9 @@ const schema = z.object({
   NEXTAUTH_SECRET: z.string().min(32),
   GOOGLE_CLIENT_ID: z.string().min(1),
   GOOGLE_CLIENT_SECRET: z.string().min(1),
+  // Optional — when set, /api/youtube/search is available. Without it
+  // the search UI gracefully degrades to "paste a link".
+  YOUTUBE_API_KEY: z.string().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

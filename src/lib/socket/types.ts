@@ -14,6 +14,13 @@ export type Participant = {
   displayName: string;
 };
 
+export type NowPlaying = {
+  videoId: string;
+  title?: string;
+  thumbnail?: string;
+  author?: string;
+};
+
 export type RoomStateSnapshot = {
   roomId: string;
   videoId: string | null;
@@ -22,6 +29,8 @@ export type RoomStateSnapshot = {
   updatedAt: number;
   queue: QueueItem[];
   participants: Participant[];
+  // Metadata for the currently-playing video (best-effort via oEmbed).
+  nowPlaying: NowPlaying | null;
 };
 
 export type ChatMessage = {

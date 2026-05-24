@@ -38,7 +38,7 @@ export function JoinByCode() {
   }
 
   return (
-    <section className="bg-white rounded-2xl p-5 border-b-[3px] border-duo-border">
+    <section className="bg-duo-card rounded-2xl p-5 border-b-[3px] border-duo-border">
       <div className="text-xs font-bold uppercase text-duo-faint mb-3">Join with code</div>
       <form onSubmit={submit} className="flex gap-2">
         <input

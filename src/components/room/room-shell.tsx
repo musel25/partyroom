@@ -6,6 +6,8 @@ import { YouTubePlayer } from "./youtube-player";
 import { ChatPanel } from "./chat-panel";
 import { QueuePanel } from "./queue-panel";
 import { ReactionsOverlay } from "./reactions-overlay";
+import { NowPlaying } from "./now-playing";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useRoomState, type ConnectionStatus } from "@/hooks/use-room-state";
 import { useDriftCorrection } from "@/hooks/use-drift-correction";
 import { getSocket, closeSocket } from "@/lib/socket/client";
@@ -73,7 +75,7 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
   if (error) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-duo-cream">
-        <div className="bg-white rounded-2xl p-8 border-b-[4px] border-duo-border text-center">
+        <div className="bg-duo-card rounded-2xl p-8 border-b-[4px] border-duo-border text-center">
           <p className="text-duo-text font-bold mb-3">{error}</p>
           <Link href="/" className="text-sm font-bold text-duo-blue hover:text-duo-blue-dk">
             ← Back home
@@ -86,19 +88,20 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
   return (
     <div className="min-h-screen bg-duo-cream p-4">
       <div className="max-w-7xl mx-auto">
-        <header className="flex flex-wrap justify-between items-center gap-3 mb-4 bg-white rounded-xl px-5 py-3 border-b-[3px] border-duo-border">
+        <header className="flex flex-wrap justify-between items-center gap-3 mb-4 bg-duo-card rounded-xl px-5 py-3 border-b-[3px] border-duo-border">
           <Link href="/" className="text-xl font-bold text-duo-green">▶ partyroom</Link>
           <div className="flex items-center gap-3">
             <ConnectionBadge status={status} />
             <div className="text-sm font-bold text-duo-muted">
               Room <span className="text-duo-text">{roomCode}</span>
             </div>
+            <ThemeToggle />
             <button
               onClick={copyLink}
               className={`text-sm font-bold px-3 py-1.5 rounded-lg border-2 border-b-[3px] transition-all
                 ${copied
                   ? "bg-duo-green text-white border-duo-green-dk"
-                  : "bg-white text-duo-blue border-duo-blue/40 hover:border-duo-blue"}`}
+                  : "bg-duo-card text-duo-blue border-duo-blue/40 hover:border-duo-blue"}`}
               title="Copy the room link to share"
             >
               {copied ? "✓ Copied!" : "🔗 Copy link"}
@@ -118,9 +121,10 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
               />
               <ReactionsOverlay />
             </div>
+            <NowPlaying data={state?.nowPlaying ?? null} />
             <QueuePanel queue={state?.queue ?? []} currentVideoId={state?.videoId ?? null} />
           </div>
-          <aside className={`bg-white rounded-2xl p-4 border-b-[3px] border-duo-border flex flex-col gap-3 transition-all
+          <aside className={`bg-duo-card rounded-2xl p-4 border-b-[3px] border-duo-border flex flex-col gap-3 transition-all
                              ${chatOpen ? "h-[600px]" : "h-12 overflow-hidden"}`}>
             <button
               onClick={() => setChatOpen((v) => !v)}
@@ -195,7 +199,7 @@ function ShareBanner({ roomCode }: { roomCode: string }) {
   }
 
   return (
-    <div className="mb-4 rounded-xl bg-white border-b-[3px] border-duo-border p-3 flex flex-wrap items-center gap-3">
+    <div className="mb-4 rounded-xl bg-duo-card border-b-[3px] border-duo-border p-3 flex flex-wrap items-center gap-3">
       <span className="text-sm font-bold text-duo-text whitespace-nowrap">📣 Invite friends:</span>
       <input
         readOnly

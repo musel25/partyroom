@@ -41,6 +41,8 @@ export function installQueueHandlers(io: PartyServer, socket: Socket) {
       videoId,
       title: resolvedTitle,
       thumbnail: resolvedThumb,
+      addedById: identity.userId,
+      addedByName: identity.displayName,
     });
     setRoom(next);
     broadcastRoomState(io, roomId);

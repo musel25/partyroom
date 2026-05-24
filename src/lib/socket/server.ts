@@ -2,14 +2,19 @@ import type { PartyServer } from "./types";
 export type { PartyServer } from "./types";
 import { identifySocket } from "./auth";
 import { loadRoomIntoMemory } from "../room/rehydrate";
-import { getRoom, listParticipants } from "../room/store";
+import { getRoom } from "../room/store";
 import { trackPresence, untrackPresence } from "./presence";
 import { installPlaybackHandlers } from "./playback";
 import { installChatHandlers, loadChatHistory, chatLimiter } from "./chat";
 import { installQueueHandlers } from "./queue";
 import { installReactionHandlers, reactionLimiter } from "./reactions";
-import { broadcastRoomState } from "./broadcast";
+import { broadcastRoomState, buildSnapshot } from "./broadcast";
 import { db } from "../db";
+
+// Rooms idle (no activity) for longer than this get marked closed by
+// the periodic janitor. Closed rooms still exist in the DB but no
+// longer appear in the user's recent list and can't be joined.
+const ROOM_IDLE_CLOSE_HOURS = 24;
 
 export function installSocketServer(io: PartyServer) {
   io.on("connection", async (socket) => {
@@ -65,15 +70,9 @@ export function installSocketServer(io: PartyServer) {
         ack({ error: "Room evicted mid-join — retry" });
         return;
       }
-      ack({
-        roomId: s.roomId,
-        videoId: s.videoId,
-        playing: s.playing,
-        positionSec: s.positionSec,
-        updatedAt: s.updatedAt,
-        queue: s.queue,
-        participants: listParticipants(state.roomId),
-      });
+      ack(buildSnapshot(s));
+      // Also broadcast so existing participants see the new join.
+      broadcastRoomState(io, state.roomId);
       const history = await loadChatHistory(state.roomId);
       socket.emit("chat:history", history);
     });
@@ -117,4 +116,26 @@ export function installSocketServer(io: PartyServer) {
     chatLimiter.sweep();
     reactionLimiter.sweep();
   }, 60_000);
+
+  // Periodic janitor: close rooms that have been idle for a while.
+  // "Idle" = no in-memory state (everyone left) AND DB stateUpdated
+  // older than the threshold.
+  setInterval(() => void closeIdleRooms(), 60 * 60 * 1000); // hourly
+  // Run once at boot too, to catch anything stale from a previous run.
+  setTimeout(() => void closeIdleRooms(), 60_000);
+}
+
+async function closeIdleRooms() {
+  const cutoff = new Date(Date.now() - ROOM_IDLE_CLOSE_HOURS * 60 * 60 * 1000);
+  try {
+    const result = await db.room.updateMany({
+      where: { closedAt: null, stateUpdated: { lt: cutoff } },
+      data: { closedAt: new Date() },
+    });
+    if (result.count > 0) {
+      console.log(`[janitor] closed ${result.count} idle room(s)`);
+    }
+  } catch (e) {
+    console.error("[janitor] closeIdleRooms failed", e);
+  }
 }

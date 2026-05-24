@@ -77,7 +77,7 @@ export default function FriendsPage() {
             ⚠ {error}
           </p>
         )}
-        <section className="bg-white rounded-2xl p-5 border-b-[3px] border-duo-border">
+        <section className="bg-duo-card rounded-2xl p-5 border-b-[3px] border-duo-border">
           <div className="text-xs font-bold uppercase text-duo-faint mb-3">Find people</div>
           <input
             value={q}
@@ -95,7 +95,7 @@ export default function FriendsPage() {
           </ul>
         </section>
 
-        <section className="bg-white rounded-2xl p-5 border-b-[3px] border-duo-border">
+        <section className="bg-duo-card rounded-2xl p-5 border-b-[3px] border-duo-border">
           <div className="text-xs font-bold uppercase text-duo-faint mb-3">Your friends</div>
           <ul className="space-y-2">
             {friends.length === 0 && (

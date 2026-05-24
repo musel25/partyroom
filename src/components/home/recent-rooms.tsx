@@ -21,7 +21,7 @@ export function RecentRooms() {
   }
   return (
     <ul className="space-y-2">
-      {rooms.slice(0, 5).map((r) => (
+      {rooms.map((r) => (
         <li
           key={r.code}
           className="flex justify-between items-center p-3 bg-duo-soft rounded-xl"

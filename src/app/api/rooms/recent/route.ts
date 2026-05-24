@@ -9,7 +9,7 @@ export async function GET() {
   const recent = await db.roomParticipant.findMany({
     where: { userId: session.user.id },
     orderBy: { joinedAt: "desc" },
-    take: 20,
+    take: 3,
     include: { room: { include: { creator: { select: { name: true } } } } },
     distinct: ["roomId"],
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { YouTubePlayer } from "./youtube-player";
 import { ChatPanel } from "./chat-panel";
 import { QueueDrawer } from "./queue-drawer";
@@ -17,22 +17,62 @@ type YTPlayer = {
   getPlayerState: () => number;
 };
 
+const YT_ENDED = 0;
+const YT_PLAYING = 1;
+const YT_PAUSED = 2;
+
+// How long after we programmatically touch the player to ignore the
+// resulting onStateChange events. Long enough to cover YouTube's
+// BUFFERING → PLAYING transition that a seek triggers.
+const ECHO_SUPPRESS_MS = 1500;
+
+// If a local play/pause event would tell the server something it
+// already knows (within this many seconds), drop it. Prevents
+// buffer-resume from rebroadcasting a stale position.
+const NO_OP_POSITION_TOLERANCE_SEC = 1.5;
+
 export function RoomShell({ roomCode }: { roomCode: string }) {
   const { state, error } = useRoomState(roomCode);
   const [player, setPlayer] = useState<YTPlayer | null>(null);
   const [queueOpen, setQueueOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
-  const suppressEmit = useRef(false);
+  const [copied, setCopied] = useState(false);
+  const suppressEmitUntilRef = useRef(0);
 
-  useDriftCorrection(player, state);
+  useDriftCorrection(player, state, {
+    onBeforeApply: () => {
+      suppressEmitUntilRef.current = Date.now() + ECHO_SUPPRESS_MS;
+    },
+  });
 
   function handleStateChange(ytState: number, currentTime: number) {
-    if (suppressEmit.current) return;
+    if (Date.now() < suppressEmitUntilRef.current) return;
     const s = getSocket();
-    if (ytState === 1) s.emit("playback:play", { positionSec: currentTime });
-    if (ytState === 2) s.emit("playback:pause", { positionSec: currentTime });
-    if (ytState === 0 /* ENDED */ && state?.videoId) {
+
+    if (ytState === YT_PLAYING) {
+      // If server already thinks we're playing at ~this position, this is
+      // just a buffer-resume — don't tell the server (and don't rewind everyone).
+      if (state?.playing) {
+        const expected = state.positionSec + (Date.now() - state.updatedAt) / 1000;
+        if (Math.abs(currentTime - expected) < NO_OP_POSITION_TOLERANCE_SEC) return;
+      }
+      s.emit("playback:play", { positionSec: currentTime });
+    } else if (ytState === YT_PAUSED) {
+      // If server already thinks we're paused, no need to echo.
+      if (state && !state.playing) return;
+      s.emit("playback:pause", { positionSec: currentTime });
+    } else if (ytState === YT_ENDED && state?.videoId) {
       s.emit("queue:advance", { fromVideoId: state.videoId });
+    }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Browsers without clipboard access — user can copy from URL bar.
     }
   }
 
@@ -47,12 +87,26 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
   return (
     <div className="min-h-screen bg-duo-cream p-4">
       <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-4 bg-white rounded-xl px-5 py-3 border-b-[3px] border-duo-border">
-          <div className="text-xl font-bold text-duo-green">▶ partyroom</div>
-          <div className="text-sm font-bold text-duo-muted">
-            Room <span className="text-duo-text">{roomCode}</span>
+        <header className="flex flex-wrap justify-between items-center gap-3 mb-4 bg-white rounded-xl px-5 py-3 border-b-[3px] border-duo-border">
+          <a href="/" className="text-xl font-bold text-duo-green">▶ partyroom</a>
+          <div className="flex items-center gap-3">
+            <div className="text-sm font-bold text-duo-muted">
+              Room <span className="text-duo-text">{roomCode}</span>
+            </div>
+            <button
+              onClick={copyLink}
+              className={`text-sm font-bold px-3 py-1.5 rounded-lg border-2 border-b-[3px] transition-all
+                ${copied
+                  ? "bg-duo-green text-white border-duo-green-dk"
+                  : "bg-white text-duo-blue border-duo-blue/40 hover:border-duo-blue"}`}
+              title="Copy the room link to share"
+            >
+              {copied ? "✓ Copied!" : "🔗 Copy link"}
+            </button>
           </div>
         </header>
+
+        <ShareBanner roomCode={roomCode} />
 
         <div className="grid lg:grid-cols-[1fr_320px] gap-4">
           <div className="space-y-3">
@@ -108,6 +162,56 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
         </div>
       </div>
       <QueueDrawer queue={state?.queue ?? []} open={queueOpen} onClose={() => setQueueOpen(false)} />
+    </div>
+  );
+}
+
+// First-visit banner that nudges the host to share the room URL with friends.
+// Auto-dismisses 8s after a successful copy, or via the close button.
+function ShareBanner({ roomCode }: { roomCode: string }) {
+  const [dismissed, setDismissed] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [url, setUrl] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") setUrl(window.location.href);
+  }, []);
+
+  if (dismissed) return null;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url || `https://partyroom.musel.dev/room/${roomCode}`);
+      setCopied(true);
+      setTimeout(() => setDismissed(true), 8000);
+    } catch {}
+  }
+
+  return (
+    <div className="mb-4 rounded-xl bg-white border-b-[3px] border-duo-border p-3 flex flex-wrap items-center gap-3">
+      <span className="text-sm font-bold text-duo-text whitespace-nowrap">📣 Invite friends:</span>
+      <input
+        readOnly
+        value={url || `https://partyroom.musel.dev/room/${roomCode}`}
+        onFocus={(e) => e.currentTarget.select()}
+        className="flex-1 min-w-[200px] rounded-lg px-3 py-1.5 bg-duo-soft text-sm text-duo-text focus:outline-none"
+      />
+      <button
+        onClick={copy}
+        className={`text-sm font-bold px-3 py-1.5 rounded-lg border-2 border-b-[3px] transition-all
+          ${copied
+            ? "bg-duo-green text-white border-duo-green-dk"
+            : "bg-duo-blue text-white border-duo-blue-dk hover:brightness-105"}`}
+      >
+        {copied ? "✓ Copied!" : "Copy link"}
+      </button>
+      <button
+        onClick={() => setDismissed(true)}
+        className="text-sm font-bold text-duo-faint hover:text-duo-text px-2"
+        aria-label="Dismiss"
+      >
+        ×
+      </button>
     </div>
   );
 }

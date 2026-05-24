@@ -13,9 +13,10 @@ export const metadata: Metadata = {
   description: "Watch YouTube together. Sync. Chat. Vibe.",
 };
 
-// Inline boot script — applies the saved/system theme before React
-// hydrates so the page doesn't flash light-then-dark.
-const themeBootScript = `(function(){try{var t=localStorage.getItem('partyroom.theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.dataset.theme=t;}catch(e){}})();`;
+// Inline boot script — applies the user's saved theme before React
+// hydrates so the page doesn't flash. Default is light; users opt
+// in to dark via the header toggle.
+const themeBootScript = `(function(){try{var t=localStorage.getItem('partyroom.theme')||'light';document.documentElement.dataset.theme=t;}catch(e){}})();`;
 
 export default function RootLayout({
   children,

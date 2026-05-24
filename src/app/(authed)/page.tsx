@@ -1,5 +1,6 @@
 import { auth, signOut } from "@/lib/auth";
 import { HeroCreateRoom } from "@/components/home/hero-create-room";
+import { JoinByCode } from "@/components/home/join-by-code";
 import { FriendsSidebar } from "@/components/home/friends-sidebar";
 import { RecentRooms } from "@/components/home/recent-rooms";
 
@@ -20,6 +21,7 @@ export default async function Home() {
         <div className="grid md:grid-cols-[1fr_280px] gap-5">
           <div className="space-y-5">
             <HeroCreateRoom userName={name} />
+            <JoinByCode />
             <section className="bg-white rounded-2xl p-5 border-b-[3px] border-duo-border">
               <div className="text-xs font-bold uppercase text-duo-faint mb-3">Recent rooms</div>
               <RecentRooms />

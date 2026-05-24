@@ -69,3 +69,6 @@ next-env.d.ts
 # Prisma
 prisma/migrations/dev/
 secrets.json
+test-results/
+playwright-report/
+.playwright-mcp/

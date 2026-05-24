@@ -14,7 +14,9 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:ci": "npm test && npm run test:e2e"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -36,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/cookie": "^0.6.0",
     "@types/node": "^20.19.41",

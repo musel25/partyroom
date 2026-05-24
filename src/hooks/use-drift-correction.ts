@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { RoomStateSnapshot } from "@/lib/socket/types";
 
 type YTPlayer = {
@@ -18,9 +18,6 @@ const YT_PAUSED = 2;
 const DRIFT_THRESHOLD_SEC = 3;
 
 type Options = {
-  // Called right before we touch the player so the caller can suppress
-  // the resulting onStateChange echo that would otherwise bounce back
-  // to the server.
   onBeforeApply?: () => void;
 };
 
@@ -29,10 +26,37 @@ export function useDriftCorrection(
   state: RoomStateSnapshot | null,
   options: Options = {},
 ) {
+  const lastVideoIdRef = useRef<string | null>(null);
+
   // Event-driven only — no periodic poller. Periodic drift checks
   // rubber-banded the room when one client buffered.
   useEffect(() => {
     if (!player || !state) return;
+
+    // When the video itself changed, YouTubePlayer is calling
+    // loadVideoById which both loads AND auto-plays the new content.
+    // Issuing seekTo in the same tick races with the load and YT
+    // can end up in a weird "blank" state. We skip the seek and the
+    // play call this run; loadVideoById will autoplay. We DO still
+    // pause if the server says paused — handled with a brief delay
+    // to let the load settle.
+    const last = lastVideoIdRef.current;
+    const videoChanged = last !== null && last !== state.videoId;
+    lastVideoIdRef.current = state.videoId;
+
+    if (videoChanged) {
+      if (!state.playing) {
+        const id = setTimeout(() => {
+          if (player.getPlayerState() === YT_PLAYING) {
+            options.onBeforeApply?.();
+            player.pauseVideo();
+          }
+        }, 1200);
+        return () => clearTimeout(id);
+      }
+      return;
+    }
+
     const now = Date.now();
     const expected = state.playing
       ? state.positionSec + (now - state.updatedAt) / 1000
@@ -50,9 +74,6 @@ export function useDriftCorrection(
 
     options.onBeforeApply?.();
     if (needsSeek) player.seekTo(expected, true);
-    // Only issue the play/pause command when the player actually needs
-    // to transition — avoids re-issuing no-op commands that some
-    // YouTube embeds still bounce back as state changes.
     if (needsPlay) player.playVideo();
     if (needsPause) player.pauseVideo();
     // eslint-disable-next-line react-hooks/exhaustive-deps

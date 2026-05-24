@@ -12,10 +12,34 @@ type Recent = {
 
 export function RecentRooms() {
   const [rooms, setRooms] = useState<Recent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    try {
+      const r = await fetch("/api/rooms/recent").then((r) => r.json());
+      if (Array.isArray(r)) setRooms(r);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    void fetch("/api/rooms/recent").then((r) => r.json()).then(setRooms);
+    void load();
   }, []);
 
+  async function remove(code: string) {
+    // Optimistic — drop from the list immediately, undo on failure.
+    const prev = rooms;
+    setRooms((rs) => rs.filter((r) => r.code !== code));
+    try {
+      const res = await fetch(`/api/rooms/recent/${code}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("failed");
+    } catch {
+      setRooms(prev);
+    }
+  }
+
+  if (loading) return <p className="text-sm text-duo-muted">Loading…</p>;
   if (rooms.length === 0) {
     return <p className="text-sm text-duo-muted">No rooms yet — create one above!</p>;
   }
@@ -24,17 +48,27 @@ export function RecentRooms() {
       {rooms.map((r) => (
         <li
           key={r.code}
-          className="flex justify-between items-center p-3 bg-duo-soft rounded-xl"
+          className="flex justify-between items-center p-3 bg-duo-soft rounded-xl group"
         >
-          <div>
+          <div className="min-w-0">
             <div className="font-bold text-sm text-duo-text">{r.code}</div>
-            <div className="text-xs text-duo-faint">by {r.creatorName ?? "you"}</div>
+            <div className="text-xs text-duo-faint truncate">by {r.creatorName ?? "you"}</div>
           </div>
-          {!r.closed && (
-            <a href={`/room/${r.code}`} className="text-sm font-bold text-duo-blue hover:text-duo-blue-dk">
-              Open
-            </a>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {!r.closed && (
+              <a href={`/room/${r.code}`} className="text-sm font-bold text-duo-blue hover:text-duo-blue-dk">
+                Open
+              </a>
+            )}
+            <button
+              onClick={() => remove(r.code)}
+              className="text-duo-faint hover:text-red-500 text-lg font-bold w-6 h-6 leading-none rounded-md opacity-50 group-hover:opacity-100 transition-opacity"
+              aria-label="Remove from recent"
+              title="Remove from your recent rooms"
+            >
+              ×
+            </button>
+          </div>
         </li>
       ))}
     </ul>

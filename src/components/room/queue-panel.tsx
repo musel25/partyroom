@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { getSocket } from "@/lib/socket/client";
 import { parseYouTubeId } from "@/lib/youtube";
 import { DuoButton } from "@/components/theme/duo-button";

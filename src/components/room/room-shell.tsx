@@ -7,6 +7,7 @@ import { ChatPanel } from "./chat-panel";
 import { QueuePanel } from "./queue-panel";
 import { ReactionsOverlay } from "./reactions-overlay";
 import { NowPlaying } from "./now-playing";
+import { HistoryPanel } from "./history-panel";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useRoomState, type ConnectionStatus } from "@/hooks/use-room-state";
 import { useDriftCorrection } from "@/hooks/use-drift-correction";
@@ -123,6 +124,7 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
             </div>
             <NowPlaying data={state?.nowPlaying ?? null} />
             <QueuePanel queue={state?.queue ?? []} currentVideoId={state?.videoId ?? null} />
+            <HistoryPanel roomCode={roomCode} state={state} />
           </div>
           <aside className={`bg-duo-card rounded-2xl p-4 border-b-[3px] border-duo-border flex flex-col gap-3 transition-all
                              ${chatOpen ? "h-[600px]" : "h-12 overflow-hidden"}`}>

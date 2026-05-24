@@ -5,6 +5,7 @@ import { applyPlay, applyPause, applySeek, applyLoadVideo } from "../room/state"
 import { persistRoomState } from "../room/rehydrate";
 import { broadcastRoomState } from "./broadcast";
 import { parseYouTubeId } from "../youtube";
+import { recordPlayHistory } from "../room/history";
 
 const NO_OP_TOLERANCE_SEC = 1;
 
@@ -61,5 +62,6 @@ export function installPlaybackHandlers(io: PartyServer, socket: Socket) {
     setRoom(next);
     broadcastRoomState(io, roomId);
     void persistRoomState(next);
+    void recordPlayHistory(roomId, videoId);
   });
 }

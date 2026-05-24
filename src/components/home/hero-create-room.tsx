@@ -96,8 +96,8 @@ export function HeroCreateRoom({ userName }: { userName: string }) {
       className="rounded-2xl p-6 text-white border-b-[4px] border-duo-green-2"
       style={{ background: "linear-gradient(135deg, #58cc02 0%, #89e219 100%)" }}
     >
-      <h2 className="text-xl font-bold mb-1">👋 Hey {userName}</h2>
-      <p className="text-sm text-white/90 mb-4">
+      <h2 className="text-2xl font-extrabold mb-1 drop-shadow-sm">👋 Hey {userName}</h2>
+      <p className="text-sm font-bold text-white mb-4 drop-shadow-sm">
         {searchEnabled
           ? "Search YouTube or paste a link to start watching together."
           : "Paste a YouTube link to start watching together."}
@@ -107,7 +107,7 @@ export function HeroCreateRoom({ userName }: { userName: string }) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-xl px-4 py-3 text-duo-text placeholder-[#aaa] focus:outline-none"
+          className="w-full rounded-xl px-4 py-3 bg-white text-duo-text placeholder-duo-muted focus:outline-none focus:ring-2 focus:ring-white text-base"
           aria-label="Search YouTube or paste a link"
         />
         <DuoButton

@@ -62,7 +62,7 @@ export function RecentRooms() {
             )}
             <button
               onClick={() => remove(r.code)}
-              className="text-duo-faint hover:text-red-500 text-lg font-bold w-6 h-6 leading-none rounded-md opacity-50 group-hover:opacity-100 transition-opacity"
+              className="text-duo-muted hover:text-red-500 hover:bg-duo-card text-xl font-bold w-7 h-7 leading-none rounded-md flex items-center justify-center transition-colors"
               aria-label="Remove from recent"
               title="Remove from your recent rooms"
             >

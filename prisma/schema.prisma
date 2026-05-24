@@ -41,6 +41,24 @@ model Room {
   participants RoomParticipant[]
   messages     Message[]
   queue        QueueItem[]
+  history      PlayHistory[]
+}
+
+// Append-only log of every video that has played in a room — lets
+// participants scroll back and re-queue something. Distinct from
+// QueueItem (the "what's next" list); a video moves from QueueItem
+// to PlayHistory when it starts playing.
+model PlayHistory {
+  id        String   @id @default(cuid())
+  roomId    String
+  videoId   String
+  title     String?
+  thumbnail String?
+  playedAt  DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, playedAt])
 }
 
 model QueueItem {

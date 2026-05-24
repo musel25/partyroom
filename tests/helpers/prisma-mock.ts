@@ -42,6 +42,11 @@ export function mockPrisma() {
       update: ok(),
       delete: ok(),
     },
+    playHistory: {
+      create: ok(),
+      findFirst: ok(),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   };
   vi.doMock("@/lib/db", () => ({ db }));
   return db;

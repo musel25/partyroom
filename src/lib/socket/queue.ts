@@ -7,6 +7,7 @@ import { persistRoomState } from "../room/rehydrate";
 import { db } from "../db";
 import { parseYouTubeId, fetchOEmbed } from "../youtube";
 import { broadcastRoomState } from "./broadcast";
+import { recordPlayHistory } from "../room/history";
 
 export function installQueueHandlers(io: PartyServer, socket: Socket) {
   socket.on("queue:add", async ({ videoId, title, thumbnail }) => {
@@ -124,4 +125,10 @@ async function doAdvance(io: PartyServer, roomId: string, fromVideoId: string) {
   }
   await persistRoomState(next);
   broadcastRoomState(io, roomId);
+  if (next.videoId && next.videoId !== s.videoId) {
+    void recordPlayHistory(roomId, next.videoId, {
+      title: head?.title,
+      thumbnail: head?.thumbnail,
+    });
+  }
 }

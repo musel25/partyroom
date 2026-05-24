@@ -40,6 +40,11 @@ export async function POST(req: Request) {
           positionSec: 0,
         },
       });
+      // Seed play history with the initial video so it shows up in
+      // the per-room "Previously played" panel.
+      await db.playHistory
+        .create({ data: { roomId: room.id, videoId } })
+        .catch(() => {});
       return NextResponse.json({ code: room.code });
     } catch (e: unknown) {
       // Prisma unique violation: retry with a fresh code

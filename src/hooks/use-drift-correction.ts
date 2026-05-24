@@ -13,14 +13,14 @@ type YTPlayer = {
 
 const YT_PLAYING = 1;
 const YT_PAUSED = 2;
-// Slightly generous threshold — anything tighter and we fight YouTube's
-// own buffering smoothing and trigger feedback loops.
+// Generous threshold — anything tighter fights YouTube's own buffer
+// smoothing and triggers feedback loops with one buffering client.
 const DRIFT_THRESHOLD_SEC = 3;
 
 type Options = {
   // Called right before we touch the player so the caller can suppress
-  // the resulting onStateChange echo (which would otherwise bounce the
-  // same event back to the server).
+  // the resulting onStateChange echo that would otherwise bounce back
+  // to the server.
   onBeforeApply?: () => void;
 };
 
@@ -29,11 +29,8 @@ export function useDriftCorrection(
   state: RoomStateSnapshot | null,
   options: Options = {},
 ) {
-  // Only reconcile on actual state changes — no periodic poller.
-  // A periodic check rubber-bands the room when one client buffers,
-  // because the buffer pause makes our local position trail the
-  // server's expected position; the seek to catch up triggers more
-  // buffering, etc.
+  // Event-driven only — no periodic poller. Periodic drift checks
+  // rubber-banded the room when one client buffered.
   useEffect(() => {
     if (!player || !state) return;
     const now = Date.now();
@@ -49,12 +46,15 @@ export function useDriftCorrection(
     const needsPlay = state.playing && !isPlaying;
     const needsPause = !state.playing && !isPaused;
 
-    if (needsSeek || needsPlay || needsPause) {
-      options.onBeforeApply?.();
-    }
+    if (!needsSeek && !needsPlay && !needsPause) return;
+
+    options.onBeforeApply?.();
     if (needsSeek) player.seekTo(expected, true);
-    if (state.playing) player.playVideo();
-    else player.pauseVideo();
+    // Only issue the play/pause command when the player actually needs
+    // to transition — avoids re-issuing no-op commands that some
+    // YouTube embeds still bounce back as state changes.
+    if (needsPlay) player.playVideo();
+    if (needsPause) player.pauseVideo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player, state?.videoId, state?.playing, state?.updatedAt, state?.positionSec]);
 }

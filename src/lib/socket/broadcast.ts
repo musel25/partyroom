@@ -1,11 +1,7 @@
-import type { Server } from "socket.io";
-import type { ClientToServerEvents, ServerToClientEvents, RoomStateSnapshot } from "./types";
+import type { PartyServer, RoomStateSnapshot } from "./types";
 import { getRoom, listParticipants } from "../room/store";
 
-export function broadcastRoomState(
-  io: Server<ClientToServerEvents, ServerToClientEvents>,
-  roomId: string,
-): void {
+export function broadcastRoomState(io: PartyServer, roomId: string): void {
   const s = getRoom(roomId);
   if (!s) return;
   const snap: RoomStateSnapshot = {

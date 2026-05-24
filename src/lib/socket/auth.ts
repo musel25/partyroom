@@ -3,12 +3,7 @@ import { parse as parseCookie } from "cookie";
 import { decode } from "next-auth/jwt";
 import { db } from "../db";
 import { readGuest } from "../auth-guest";
-
-export type SocketUser = {
-  userId?: string;
-  guestName?: string;
-  displayName: string;
-};
+import type { SocketUserIdentity } from "./types";
 
 const AUTHJS_COOKIE_NAMES = [
   "authjs.session-token",
@@ -17,7 +12,7 @@ const AUTHJS_COOKIE_NAMES = [
   "__Secure-next-auth.session-token",
 ] as const;
 
-export async function identifySocket(socket: Socket): Promise<SocketUser | null> {
+export async function identifySocket(socket: Socket): Promise<SocketUserIdentity | null> {
   const raw = socket.handshake.headers.cookie;
   if (!raw) return null;
   const cookies = parseCookie(raw);
@@ -33,11 +28,11 @@ export async function identifySocket(socket: Socket): Promise<SocketUser | null>
         salt: name,
       });
       if (payload?.sub) {
-        // Fetch the user's display name from the DB (the JWT only carries the id).
         const user = await db.user.findUnique({ where: { id: payload.sub } });
         return {
           userId: payload.sub,
           displayName: user?.name ?? user?.email ?? "Player",
+          userKey: `u:${payload.sub}`,
         };
       }
     } catch {
@@ -50,7 +45,12 @@ export async function identifySocket(socket: Socket): Promise<SocketUser | null>
   if (guestToken) {
     const guest = await readGuest(guestToken);
     if (guest) {
-      return { guestName: guest.guestName, displayName: guest.guestName };
+      return {
+        guestName: guest.guestName,
+        guestId: guest.guestId,
+        displayName: guest.guestName,
+        userKey: `g:${guest.guestId}`,
+      };
     }
   }
 

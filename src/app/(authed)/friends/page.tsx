@@ -15,24 +15,41 @@ export default function FriendsPage() {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  async function fetchJSON<T>(input: RequestInfo, init?: RequestInit): Promise<T | null> {
+    try {
+      const res = await fetch(input, init);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? `Request failed (${res.status})`);
+        return null;
+      }
+      setError(null);
+      return (await res.json()) as T;
+    } catch {
+      setError("Network error.");
+      return null;
+    }
+  }
 
   async function reload() {
-    const r = await fetch("/api/friends").then((r) => r.json());
-    setFriends(r);
+    const r = await fetchJSON<Friend[]>("/api/friends");
+    if (r) setFriends(r);
   }
   useEffect(() => { void reload(); }, []);
 
   useEffect(() => {
     if (q.length < 2) { setHits([]); return; }
     const t = setTimeout(async () => {
-      const r = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`).then((r) => r.json());
-      setHits(r);
+      const r = await fetchJSON<SearchHit[]>(`/api/users/search?q=${encodeURIComponent(q)}`);
+      if (r) setHits(r);
     }, 200);
     return () => clearTimeout(t);
   }, [q]);
 
   async function add(otherUserId: string) {
-    await fetch("/api/friends", {
+    await fetchJSON("/api/friends", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ otherUserId }),
@@ -43,11 +60,11 @@ export default function FriendsPage() {
   }
 
   async function accept(id: string) {
-    await fetch(`/api/friends/${id}`, { method: "PATCH" });
+    await fetchJSON(`/api/friends/${id}`, { method: "PATCH" });
     void reload();
   }
   async function remove(id: string) {
-    await fetch(`/api/friends/${id}`, { method: "DELETE" });
+    await fetchJSON(`/api/friends/${id}`, { method: "DELETE" });
     void reload();
   }
 
@@ -55,6 +72,11 @@ export default function FriendsPage() {
     <main className="min-h-screen bg-duo-cream p-6">
       <div className="max-w-2xl mx-auto space-y-5">
         <h1 className="text-2xl font-bold text-duo-text">Friends</h1>
+        {error && (
+          <p role="alert" className="text-sm text-red-600 bg-red-50 border-2 border-red-200 rounded-xl px-4 py-2">
+            ⚠ {error}
+          </p>
+        )}
         <section className="bg-white rounded-2xl p-5 border-b-[3px] border-duo-border">
           <div className="text-xs font-bold uppercase text-duo-faint mb-3">Find people</div>
           <input

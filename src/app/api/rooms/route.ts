@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { parseYouTubeId, fetchOEmbed } from "@/lib/youtube";
+import { parseYouTubeId } from "@/lib/youtube";
 import { generateRoomCode } from "@/lib/room-codes";
 
 const Body = z.object({
@@ -25,7 +25,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not a valid YouTube URL" }, { status: 400 });
   }
 
-  // Retry on rare code collision
+  // The current video lives on Room.videoId; the queue is purely "what's next".
+  // Don't seed the queue with the playing video — it confused the UI and
+  // the queue:advance flow (the head could equal current → no-op advance).
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateRoomCode();
     try {
@@ -38,16 +40,6 @@ export async function POST(req: Request) {
           positionSec: 0,
         },
       });
-
-      // Best-effort oEmbed for the initial video (non-blocking)
-      void fetchOEmbed(videoId).then(async ({ title, thumbnail }) => {
-        if (title || thumbnail) {
-          await db.queueItem.create({
-            data: { roomId: room.id, videoId, title, thumbnail, position: 0 },
-          }).catch(() => {});
-        }
-      });
-
       return NextResponse.json({ code: room.code });
     } catch (e: unknown) {
       // Prisma unique violation: retry with a fresh code

@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { YouTubePlayer } from "./youtube-player";
 import { ChatPanel } from "./chat-panel";
-import { QueueDrawer } from "./queue-drawer";
+import { QueuePanel } from "./queue-panel";
 import { ReactionsOverlay } from "./reactions-overlay";
-import { useRoomState } from "@/hooks/use-room-state";
+import { useRoomState, type ConnectionStatus } from "@/hooks/use-room-state";
 import { useDriftCorrection } from "@/hooks/use-drift-correction";
-import { getSocket } from "@/lib/socket/client";
+import { getSocket, closeSocket } from "@/lib/socket/client";
 
 type YTPlayer = {
   playVideo: () => void;
@@ -22,45 +22,38 @@ const YT_ENDED = 0;
 const YT_PLAYING = 1;
 const YT_PAUSED = 2;
 
-// How long after we programmatically touch the player to ignore the
-// resulting onStateChange events. Long enough to cover YouTube's
-// BUFFERING → PLAYING transition that a seek triggers.
-const ECHO_SUPPRESS_MS = 1500;
-
-// If a local play/pause event would tell the server something it
-// already knows (within this many seconds), drop it. Prevents
-// buffer-resume from rebroadcasting a stale position.
-const NO_OP_POSITION_TOLERANCE_SEC = 1.5;
+// If our locally-observed state already matches what the server thinks
+// (within this many seconds), don't echo. Stops feedback loops from
+// drift-correction-induced state changes and buffer-resume "play"
+// events. Server also enforces the same on the receiving side.
+const NO_OP_TOLERANCE_SEC = 1.5;
 
 export function RoomShell({ roomCode }: { roomCode: string }) {
-  const { state, error } = useRoomState(roomCode);
+  const { state, error, status } = useRoomState(roomCode);
   const [player, setPlayer] = useState<YTPlayer | null>(null);
-  const [queueOpen, setQueueOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
   const [copied, setCopied] = useState(false);
-  const suppressEmitUntilRef = useRef(0);
 
-  useDriftCorrection(player, state, {
-    onBeforeApply: () => {
-      suppressEmitUntilRef.current = Date.now() + ECHO_SUPPRESS_MS;
-    },
-  });
+  useDriftCorrection(player, state);
+
+  // Disconnect the socket when leaving the room so other pages don't
+  // hold a long-lived WebSocket open.
+  useEffect(() => {
+    return () => closeSocket();
+  }, []);
 
   function handleStateChange(ytState: number, currentTime: number) {
-    if (Date.now() < suppressEmitUntilRef.current) return;
     const s = getSocket();
-
     if (ytState === YT_PLAYING) {
-      // If server already thinks we're playing at ~this position, this is
-      // just a buffer-resume — don't tell the server (and don't rewind everyone).
+      // If server already thinks we're playing at ~this position, this
+      // is just a buffer-resume — don't tell the server.
       if (state?.playing) {
         const expected = state.positionSec + (Date.now() - state.updatedAt) / 1000;
-        if (Math.abs(currentTime - expected) < NO_OP_POSITION_TOLERANCE_SEC) return;
+        if (Math.abs(currentTime - expected) < NO_OP_TOLERANCE_SEC) return;
       }
       s.emit("playback:play", { positionSec: currentTime });
     } else if (ytState === YT_PAUSED) {
-      // If server already thinks we're paused, no need to echo.
-      if (state && !state.playing) return;
+      if (state && !state.playing) return; // already paused server-side
       s.emit("playback:pause", { positionSec: currentTime });
     } else if (ytState === YT_ENDED && state?.videoId) {
       s.emit("queue:advance", { fromVideoId: state.videoId });
@@ -80,7 +73,12 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
   if (error) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-duo-cream">
-        <p className="text-duo-muted">{error}</p>
+        <div className="bg-white rounded-2xl p-8 border-b-[4px] border-duo-border text-center">
+          <p className="text-duo-text font-bold mb-3">{error}</p>
+          <Link href="/" className="text-sm font-bold text-duo-blue hover:text-duo-blue-dk">
+            ← Back home
+          </Link>
+        </div>
       </main>
     );
   }
@@ -91,6 +89,7 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
         <header className="flex flex-wrap justify-between items-center gap-3 mb-4 bg-white rounded-xl px-5 py-3 border-b-[3px] border-duo-border">
           <Link href="/" className="text-xl font-bold text-duo-green">▶ partyroom</Link>
           <div className="flex items-center gap-3">
+            <ConnectionBadge status={status} />
             <div className="text-sm font-bold text-duo-muted">
               Room <span className="text-duo-text">{roomCode}</span>
             </div>
@@ -119,15 +118,7 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
               />
               <ReactionsOverlay />
             </div>
-            <div className="bg-white rounded-xl p-3 border-b-[3px] border-duo-border flex justify-between items-center">
-              <span className="text-sm text-duo-muted">Anyone can play, pause, seek, or add to the queue.</span>
-              <button
-                onClick={() => setQueueOpen(true)}
-                className="text-sm font-bold text-duo-blue hover:text-duo-blue-dk"
-              >
-                Queue ({state?.queue.length ?? 0})
-              </button>
-            </div>
+            <QueuePanel queue={state?.queue ?? []} currentVideoId={state?.videoId ?? null} />
           </div>
           <aside className={`bg-white rounded-2xl p-4 border-b-[3px] border-duo-border flex flex-col gap-3 transition-all
                              ${chatOpen ? "h-[600px]" : "h-12 overflow-hidden"}`}>
@@ -135,7 +126,7 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
               onClick={() => setChatOpen((v) => !v)}
               className="text-xs font-bold uppercase text-duo-faint flex justify-between items-center w-full"
             >
-              <span>Chat</span>
+              <span>Chat & people</span>
               <span>{chatOpen ? "−" : "+"}</span>
             </button>
             {chatOpen && (
@@ -162,13 +153,28 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
           </aside>
         </div>
       </div>
-      <QueueDrawer queue={state?.queue ?? []} open={queueOpen} onClose={() => setQueueOpen(false)} />
     </div>
   );
 }
 
-// First-visit banner that nudges the host to share the room URL with friends.
-// Auto-dismisses 8s after a successful copy, or via the close button.
+function ConnectionBadge({ status }: { status: ConnectionStatus }) {
+  if (status === "connected") {
+    return (
+      <span className="text-xs font-bold text-duo-green flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-duo-green inline-block" />
+        Live
+      </span>
+    );
+  }
+  const label = status === "reconnecting" ? "Reconnecting…" : "Connecting…";
+  return (
+    <span className="text-xs font-bold text-duo-orange flex items-center gap-1.5">
+      <span className="w-2 h-2 rounded-full bg-duo-orange inline-block animate-pulse" />
+      {label}
+    </span>
+  );
+}
+
 function ShareBanner({ roomCode }: { roomCode: string }) {
   const [dismissed, setDismissed] = useState(false);
   const [copied, setCopied] = useState(false);

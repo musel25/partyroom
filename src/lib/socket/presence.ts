@@ -1,9 +1,11 @@
-import type { Server, Socket } from "socket.io";
-import type { ClientToServerEvents, ServerToClientEvents, Participant } from "./types";
-import { addParticipant, removeParticipant } from "../room/store";
+import type { Socket } from "socket.io";
+import type { Participant } from "./types";
+import { addParticipant, deleteRoom, getRoom, listParticipants, removeParticipant } from "../room/store";
+import { persistRoomState } from "../room/rehydrate";
+import type { PartyServer } from "./types";
 
 export function trackPresence(
-  io: Server<ClientToServerEvents, ServerToClientEvents>,
+  io: PartyServer,
   socket: Socket,
   roomId: string,
   p: Participant,
@@ -15,13 +17,25 @@ export function trackPresence(
   io.to(roomId).emit("participant:join", p);
 }
 
-export function untrackPresence(
-  io: Server<ClientToServerEvents, ServerToClientEvents>,
-  socket: Socket,
-) {
-  const roomId = socket.data.roomId as string | undefined;
+export function untrackPresence(io: PartyServer, socket: Socket) {
+  const roomId = socket.data.roomId;
   if (!roomId) return;
   const p = removeParticipant(roomId, socket.id);
   if (p) io.to(roomId).emit("participant:leave", { socketId: socket.id });
   socket.leave(roomId);
+  socket.data.roomId = undefined;
+  socket.data.participant = undefined;
+
+  // Evict the room from memory when nobody's left. The DB still has
+  // the latest persisted state so the next visitor rehydrates from
+  // disk. Without this, a long-lived server accumulates dead rooms
+  // and broadcasts heartbeats to empty channels forever.
+  if (listParticipants(roomId).length === 0) {
+    const state = getRoom(roomId);
+    if (state) {
+      // Best-effort final persist before evicting.
+      void persistRoomState(state);
+      deleteRoom(roomId);
+    }
+  }
 }

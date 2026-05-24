@@ -24,9 +24,7 @@ declare global {
 }
 
 // Shared ready-callback registry so multiple players (current + future)
-// don't clobber each other's `onYouTubeIframeAPIReady`. Any caller that
-// pushes here fires when YT loads; if YT is already loaded, the push
-// site can call its callback synchronously.
+// don't clobber each other's `onYouTubeIframeAPIReady`.
 function registerYTReady(cb: () => void) {
   if (typeof window === "undefined") return;
   if (window.YT?.Player) {
@@ -35,7 +33,6 @@ function registerYTReady(cb: () => void) {
   }
   window.__ytApiCallbacks ??= [];
   window.__ytApiCallbacks.push(cb);
-  // First registration wires the global hook.
   if (window.__ytApiCallbacks.length === 1) {
     window.onYouTubeIframeAPIReady = () => {
       const cbs = window.__ytApiCallbacks ?? [];
@@ -63,27 +60,29 @@ export function YouTubePlayer({ videoId, onReady, onStateChange }: Props) {
   const readyRef = useRef(false);
   const currentVideoIdRef = useRef<string | null>(null);
   const buildAttemptRef = useRef(0);
-  const propsRef = useRef({ onReady, onStateChange });
-  propsRef.current = { onReady, onStateChange };
+  // Latest props accessible from inside YT callbacks without re-running
+  // the build effect every time a callback identity changes.
+  const propsRef = useRef({ videoId, onReady, onStateChange });
+  propsRef.current = { videoId, onReady, onStateChange };
   const [error, setError] = useState<string | null>(null);
 
-  // Build the YT player once a videoId is available. Self-heals if the
-  // player fails to become ready within a few seconds (which sometimes
-  // happens on a cold first load).
+  // Build the YT player the first time a videoId is provided.
   useEffect(() => {
     if (!videoId || playerRef.current) return;
     let cancelled = false;
     let readyTimeout: ReturnType<typeof setTimeout> | undefined;
 
     function attemptBuild() {
-      if (cancelled || !ref.current || !videoId) return;
+      if (cancelled || !ref.current || !window.YT?.Player) return;
+      const vidToBuild = propsRef.current.videoId; // use latest, not the closure's
+      if (!vidToBuild) return;
       buildAttemptRef.current += 1;
       const attempt = buildAttemptRef.current;
-      currentVideoIdRef.current = videoId;
+      currentVideoIdRef.current = vidToBuild;
 
       try {
-        playerRef.current = new window.YT!.Player(ref.current, {
-          videoId,
+        playerRef.current = new window.YT.Player(ref.current, {
+          videoId: vidToBuild,
           playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0, playsinline: 1 },
           events: {
             onReady: () => {
@@ -92,7 +91,15 @@ export function YouTubePlayer({ videoId, onReady, onStateChange }: Props) {
               if (readyTimeout) clearTimeout(readyTimeout);
               setError(null);
               const p = playerRef.current;
-              if (p) propsRef.current.onReady?.(p);
+              if (!p) return;
+              // The prop's videoId may have changed while we were
+              // initialising — load whatever's current now.
+              const vidNow = propsRef.current.videoId;
+              if (vidNow && vidNow !== currentVideoIdRef.current) {
+                currentVideoIdRef.current = vidNow;
+                p.loadVideoById(vidNow);
+              }
+              propsRef.current.onReady?.(p);
             },
             onStateChange: (e: { data: number }) => {
               const p = playerRef.current;
@@ -100,7 +107,6 @@ export function YouTubePlayer({ videoId, onReady, onStateChange }: Props) {
               propsRef.current.onStateChange?.(e.data, p.getCurrentTime());
             },
             onError: (e: { data: number }) => {
-              // 2: invalid id · 5: HTML5 · 100: not found · 101/150: embed denied
               const code = e?.data;
               if (code === 101 || code === 150) {
                 setError("This video can't be embedded. Try a different one.");
@@ -120,9 +126,7 @@ export function YouTubePlayer({ videoId, onReady, onStateChange }: Props) {
         return;
       }
 
-      // Self-heal: if onReady never fires within 8s on the very first
-      // build, destroy and rebuild once. Covers the rare cold-load
-      // case where the iframe script loads but the player init hangs.
+      // Self-heal: rebuild once if onReady never fires (rare cold-load case).
       readyTimeout = setTimeout(() => {
         if (cancelled || readyRef.current) return;
         if (buildAttemptRef.current >= 3) return;

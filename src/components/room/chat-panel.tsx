@@ -50,7 +50,16 @@ export function ChatPanel() {
           maxLength={500}
           placeholder="Say something..."
           className="flex-1 rounded-xl px-3 py-2 bg-duo-soft focus:outline-none focus:bg-white border-2 border-transparent focus:border-duo-green text-sm"
+          aria-label="Chat message"
         />
+        <button
+          type="submit"
+          disabled={!draft.trim()}
+          className="rounded-xl px-3 py-2 bg-duo-green text-white font-bold text-sm border-b-[3px] border-duo-green-dk disabled:opacity-40 disabled:cursor-not-allowed"
+          aria-label="Send message"
+        >
+          Send
+        </button>
       </form>
     </div>
   );

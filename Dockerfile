@@ -25,11 +25,8 @@ RUN npx esbuild server.ts \
 FROM node:22-alpine AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && \
-    # Prisma needs its engine binaries at runtime; generate them here too.
-    npx prisma generate
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN npm ci --omit=dev && npx prisma generate
 
 FROM node:22-alpine AS runner
 WORKDIR /app

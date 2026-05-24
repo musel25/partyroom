@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { YouTubePlayer } from "./youtube-player";
 import { ChatPanel } from "./chat-panel";
 import { QueueDrawer } from "./queue-drawer";
@@ -88,7 +89,7 @@ export function RoomShell({ roomCode }: { roomCode: string }) {
     <div className="min-h-screen bg-duo-cream p-4">
       <div className="max-w-7xl mx-auto">
         <header className="flex flex-wrap justify-between items-center gap-3 mb-4 bg-white rounded-xl px-5 py-3 border-b-[3px] border-duo-border">
-          <a href="/" className="text-xl font-bold text-duo-green">▶ partyroom</a>
+          <Link href="/" className="text-xl font-bold text-duo-green">▶ partyroom</Link>
           <div className="flex items-center gap-3">
             <div className="text-sm font-bold text-duo-muted">
               Room <span className="text-duo-text">{roomCode}</span>
